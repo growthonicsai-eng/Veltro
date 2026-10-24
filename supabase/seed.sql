@@ -1,0 +1,3 @@
+-- Production seed intentionally contains no demo vacancies.
+-- Add real Veltro vacancies through the /admin dashboard after launch.
+-- This file is safe to run and does not create sample companies or jobs.
