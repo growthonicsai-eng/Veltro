@@ -46,8 +46,8 @@ export function Header() {
 const FOOT = {
   Candidates: [['Job Search', '/jobs'], ['Submit CV', '/submit-cv'], ['Career Advice', '/resources'], ['Candidate Portal', '/candidates']],
   Employers: [['Hire Talent', '/employers'], ['Post a Vacancy', '/upload-vacancy'], ['Permanent', '/services'], ['Contract & Temp', '/services']],
-  Company: [['About Us', '/about'], ['Meet the Team', '/about'], ['Contact', '/contact']],
-  Legal: [['Privacy Policy', '/legal'], ['Cookie Policy', '/legal'], ['Terms & Conditions', '/legal'], ['Accessibility', '/legal']],
+  Company: [['About Us', '/about'], ['Meet the Team', '/about#meet-the-team'], ['Contact', '/contact']],
+  Legal: [['Privacy Policy', '/legal#privacy-policy'], ['Cookie Policy', '/legal#cookie-policy'], ['Terms & Conditions', '/legal#terms-and-conditions'], ['Accessibility', '/legal#accessibility']],
 };
 
 export function Footer() {

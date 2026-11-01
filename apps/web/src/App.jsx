@@ -3,7 +3,7 @@ import { Route, Routes, BrowserRouter as Router } from 'react-router-dom';
 import ScrollToTop from './components/ScrollToTop';
 import AdminPage from './pages/Admin';
 import HomePage from './pages/HomePage';
-import { JobSearchPage, JobDetailPage, EmployersPage, CandidatesPage, ServicesPage, AboutPage, SubmitCvPage, UploadVacancyPage, ContactPage, ResourcesPage, LegalPage } from './pages/Pages';
+import { JobSearchPage, JobDetailPage, EmployersPage, CandidatesPage, ServicesPage, AboutPage, SubmitCvPage, UploadVacancyPage, ContactPage, ResourcesPage, ArticlePage, LegalPage } from './pages/Pages';
 
 function App() {
     return (
@@ -21,6 +21,7 @@ function App() {
                 <Route path="/upload-vacancy" element={<UploadVacancyPage />} />
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/resources" element={<ResourcesPage />} />
+                <Route path="/resources/:slug" element={<ArticlePage />} />
                 <Route path="/legal" element={<LegalPage />} />
                 <Route path="/admin/*" element={<AdminPage />} />
                 <Route path="*" element={<HomePage />} />

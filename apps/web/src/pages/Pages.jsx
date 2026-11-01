@@ -4,7 +4,7 @@ import { Search, MapPin, ArrowRight, ArrowLeft, Banknote, Clock, Building2, Chec
 import Layout from '@/components/Layout';
 import JobCard from '@/components/JobCard';
 import { SECTORS, sectorName, jobTypes, workModes, PIPELINE, TEAM, ARTICLES, COMPANY, PROCESS } from '@/data/site';
-import { usePublishedJobs } from '@/hooks/usePublishedJobs';
+import { usePublishedJobs, usePublishedJobsState } from '@/hooks/usePublishedJobs';
 import { submitContact, submitVacancy, submitCandidate } from '@/lib/api';
 import { supabaseConfigured } from '@/lib/supabase';
 
@@ -22,7 +22,7 @@ function PageHero({ eyebrow, title, sub }) {
 
 /* ---------------- Job board ---------------- */
 export function JobSearchPage() {
-  const liveJobs = usePublishedJobs();
+  const { jobs: liveJobs, loading } = usePublishedJobsState();
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState(params.get('q') || '');
   const [loc, setLoc] = useState(params.get('loc') || '');
@@ -43,11 +43,11 @@ export function JobSearchPage() {
     if (sort === 'salary') r = [...r].sort((a, b) => b.salaryMin - a.salaryMin);
     if (sort === 'newest') r = [...r].sort((a, b) => a.postedDays - b.postedDays);
     return r;
-  }, [q, loc, type, sector, work, sort]);
+  }, [liveJobs, q, loc, type, sector, work, sort]);
 
   return (
     <Layout>
-      <PageHero eyebrow="Job board" title="Find your next role" sub={`${liveJobs.length} live vacancies across permanent, contract and temporary assignments.`} />
+      <PageHero eyebrow="Job board" title="Find your next role" sub={loading ? 'Loading the latest vacancies…' : `${liveJobs.length} live vacancies across permanent, contract and temporary assignments.`} />
       <section className="mx-auto max-w-[90rem] px-5 lg:px-8 py-10">
         <div className="grid lg:grid-cols-[280px_1fr] gap-8">
           {/* Filters */}
@@ -80,7 +80,7 @@ export function JobSearchPage() {
           {/* Results */}
           <div>
             <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
-              <p className="text-sm text-muted-foreground"><span className="font-semibold text-primary">{results.length}</span> jobs found</p>
+              <p className="text-sm text-muted-foreground">{loading ? 'Loading jobs…' : <><span className="font-semibold text-primary">{results.length}</span> jobs found</>}</p>
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground">Sort by</span>
                 <select value={sort} onChange={(e) => set('sort', e.target.value)} className="px-3 py-2 rounded-lg border border-border bg-card outline-none">
@@ -89,7 +89,11 @@ export function JobSearchPage() {
                 </select>
               </div>
             </div>
-            {results.length === 0 ? (
+            {loading ? (
+              <div className="grid sm:grid-cols-2 gap-4" aria-busy="true">
+                {[0, 1, 2, 3].map((i) => <div key={i} className="h-44 rounded-xl border border-border bg-secondary/60 animate-pulse" />)}
+              </div>
+            ) : results.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border p-12 text-center">
                 <Briefcase className="h-10 w-10 mx-auto text-muted-foreground/40" />
                 <p className="mt-3 font-display font-semibold text-primary">No jobs match your filters</p>
@@ -126,9 +130,10 @@ function FilterGroup({ label, options, value, onChange }) {
 
 /* ---------------- Job details ---------------- */
 export function JobDetailPage() {
-  const liveJobs = usePublishedJobs();
+  const { jobs: liveJobs, loading } = usePublishedJobsState();
   const { id } = useParams();
   const job = liveJobs.find((j) => String(j.id) === id);
+  if (!job && loading) return <Layout><div className="mx-auto max-w-3xl px-5 py-24 text-center text-muted-foreground">Loading job…</div></Layout>;
   if (!job) return <Layout><div className="mx-auto max-w-3xl px-5 py-24 text-center"><h1 className="font-display text-2xl font-bold text-primary">Job not found</h1><Link to="/jobs" className="text-accent font-semibold mt-3 inline-block">Back to job board</Link></div></Layout>;
   const similar = liveJobs.filter((j) => j.sector === job.sector && j.id !== job.id).slice(0, 3);
   return (
@@ -375,7 +380,7 @@ export function AboutPage() {
       </section>
 
       {/* Meet the team */}
-      <section className="mx-auto max-w-[90rem] px-5 lg:px-8 pb-16">
+      <section id="meet-the-team" className="scroll-mt-24 mx-auto max-w-[90rem] px-5 lg:px-8 pb-16">
         <p className="text-accent font-semibold text-sm uppercase tracking-wider">Our people</p>
         <h2 className="mt-2 font-display text-3xl font-bold text-primary">Meet the team</h2>
         <p className="mt-3 text-muted-foreground max-w-2xl leading-relaxed">Behind every placement is a real person who listens, asks the right questions and stays in touch. Our consultants specialise in their sectors, so you speak to someone who understands your market, not a generalist.</p>
@@ -509,33 +514,129 @@ export function ResourcesPage() {
   return (
     <Layout>
       <PageHero eyebrow="Resources" title="Career advice & market insight" sub="Practical guides for candidates and employers — from CV tips to salary benchmarks and IR35." />
-      <section className="mx-auto max-w-[90rem] px-5 lg:px-8 py-16 grid md:grid-cols-3 gap-6">
+      <section className="mx-auto max-w-[90rem] px-5 lg:px-8 py-16 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {ARTICLES.map((a) => (
-          <div key={a.title} className="rounded-xl border border-border bg-card p-7">
+          <Link key={a.slug} to={`/resources/${a.slug}`} className="group flex flex-col rounded-xl border border-border bg-card p-7 hover:border-accent/50 hover:shadow-md transition-all">
             <span className="text-xs font-semibold text-accent">{a.cat} · {a.read} read</span>
             <h3 className="mt-2 font-display font-semibold text-lg text-primary leading-snug">{a.title}</h3>
             <p className="mt-2 text-sm text-muted-foreground">{a.excerpt}</p>
-          </div>
+            <span className="pt-5 inline-flex items-center gap-2 text-sm font-semibold text-accent mt-auto">Read article <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></span>
+          </Link>
         ))}
       </section>
     </Layout>
   );
 }
 
+export function ArticlePage() {
+  const { slug } = useParams();
+  const article = ARTICLES.find((a) => a.slug === slug);
+  if (!article) {
+    return (
+      <Layout>
+        <PageHero eyebrow="Resources" title="Article not found" sub="We couldn't find that article. Browse our latest guides instead." />
+        <section className="mx-auto max-w-3xl px-5 lg:px-8 py-16">
+          <Link to="/resources" className="inline-flex items-center gap-2 text-sm font-semibold text-accent"><ArrowLeft className="h-4 w-4" /> Back to resources</Link>
+        </section>
+      </Layout>
+    );
+  }
+  const others = ARTICLES.filter((a) => a.slug !== article.slug);
+  return (
+    <Layout>
+      <PageHero eyebrow={`${article.cat} · ${article.read} read`} title={article.title} sub={article.excerpt} />
+      <article className="mx-auto max-w-3xl px-5 lg:px-8 py-12 lg:py-16">
+        <Link to="/resources" className="inline-flex items-center gap-2 text-sm font-semibold text-accent"><ArrowLeft className="h-4 w-4" /> All resources</Link>
+        <p className="mt-6 text-lg text-primary/80 leading-relaxed">{article.intro}</p>
+        {article.sections.map((sec) => (
+          <div key={sec.h} className="mt-10">
+            <h2 className="font-display text-2xl font-bold text-primary">{sec.h}</h2>
+            {sec.p?.map((t, i) => <p key={i} className="mt-3 text-muted-foreground leading-relaxed">{t}</p>)}
+            {sec.bullets && (
+              <ul className="mt-4 space-y-2">
+                {sec.bullets.map((b) => (
+                  <li key={b} className="flex gap-2 text-sm text-primary/80"><CheckCircle2 className="h-4 w-4 text-accent shrink-0 mt-0.5" /> {b}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
+        <div className="mt-12 rounded-2xl bg-secondary/60 p-8 text-center">
+          <h3 className="font-display text-xl font-bold text-primary">Ready to take the next step?</h3>
+          <p className="mt-2 text-sm text-muted-foreground">Our consultants are happy to help, whether you are hiring or looking for your next role.</p>
+          <div className="mt-5 flex justify-center gap-3 flex-wrap">
+            <Link to={article.cta.to} className="px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold">{article.cta.label}</Link>
+            <Link to="/contact" className="px-6 py-3 rounded-lg border border-border bg-card font-semibold text-primary">Contact us</Link>
+          </div>
+        </div>
+        <div className="mt-14">
+          <h3 className="font-display text-lg font-bold text-primary">More resources</h3>
+          <div className="mt-4 grid sm:grid-cols-2 gap-4">
+            {others.map((o) => (
+              <Link key={o.slug} to={`/resources/${o.slug}`} className="rounded-xl border border-border bg-card p-5 hover:border-accent/50 transition-colors">
+                <span className="text-xs font-semibold text-accent">{o.cat} · {o.read} read</span>
+                <p className="mt-1 font-display font-semibold text-primary leading-snug">{o.title}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </article>
+    </Layout>
+  );
+}
+
 /* ---------------- Legal ---------------- */
+const LEGAL = [
+  {
+    id: 'privacy-policy', title: 'Privacy Policy',
+    intro: 'We process personal data lawfully, fairly and transparently under UK GDPR. We collect only what we need to provide recruitment services, retain it only as long as necessary, and never sell your data. You can request access, correction, export or deletion of your data at any time.',
+    bullets: ['What we collect: contact details, CVs, work history, vacancy information and messages you send us', 'Why we use it: to match candidates with roles, support clients and respond to enquiries', 'Who we share it with: only clients and service providers needed to deliver our services, and only with your agreement where required', 'Your rights: access, correction, deletion, restriction, portability and the right to object'],
+  },
+  {
+    id: 'cookie-policy', title: 'Cookie Policy',
+    intro: 'We use essential cookies to run the site and, with your consent, analytics cookies to understand usage. You can manage your preferences at any time through the cookie banner.',
+    bullets: ['Essential cookies: keep the site secure and working, and cannot be switched off', 'Analytics cookies: help us understand which pages are useful so we can improve them, and are only used with your consent', 'Managing cookies: you can also block or delete cookies in your browser settings, though some parts of the site may not work as expected', 'We do not use cookies to sell your personal data'],
+  },
+  {
+    id: 'terms-and-conditions', title: 'Terms & Conditions',
+    intro: 'Use of this website and our services is governed by our standard terms of business for candidates and clients. Placement fees, guarantee periods and contractor terms are confirmed in writing before any engagement.',
+    bullets: ['Website use: please use the site lawfully and provide accurate information in any forms you submit', 'Job listings: vacancies are published in good faith and may change or close without notice', 'Fees and guarantees: agreed in writing with each client before work begins', 'Contractors: engagement terms, rates and payment arrangements are confirmed before an assignment starts', 'Liability: nothing in these terms limits any rights you have under UK law'],
+  },
+  {
+    id: 'accessibility', title: 'Accessibility Statement',
+    intro: 'We aim to meet WCAG 2.1 AA. The site supports keyboard navigation, screen readers, sufficient colour contrast and visible focus states. If you encounter a barrier, contact us and we will provide the information in an alternative format.',
+    bullets: ['Keyboard: pages and forms can be used without a mouse', 'Screen readers: we use meaningful headings, labels and image descriptions', 'Display: text is resizable and the layout adapts to phones, tablets and desktops', 'Feedback: if something is hard to use, tell us and we will work to fix it'],
+  },
+];
+
 export function LegalPage() {
   return (
     <Layout>
       <PageHero eyebrow="Legal & policies" title="Policies, terms & accessibility" sub="Our commitment to your privacy, data protection and an accessible experience for everyone." />
-      <section className="mx-auto max-w-3xl px-5 lg:px-8 py-16 space-y-8 text-sm text-muted-foreground leading-relaxed">
-        {[
-          ['Privacy Policy', 'We process personal data lawfully, fairly and transparently under UK GDPR. We collect only what we need to provide recruitment services, retain it only as long as necessary, and never sell your data. You can request access, correction, export or deletion of your data at any time.'],
-          ['Cookie Policy', 'We use essential cookies to run the site and, with your consent, analytics cookies to understand usage. You can manage your preferences at any time through the cookie banner.'],
-          ['Terms & Conditions', 'Use of this website and our services is governed by our standard terms of business for candidates and clients. Placement fees, guarantee periods and contractor terms are confirmed in writing before any engagement.'],
-          ['Accessibility Statement', 'We aim to meet WCAG 2.1 AA. The site supports keyboard navigation, screen readers, sufficient colour contrast and visible focus states. If you encounter a barrier, contact us and we will provide the information in an alternative format.'],
-        ].map(([h, t]) => (
-          <div key={h}><h2 className="font-display text-xl font-bold text-primary mb-2">{h}</h2><p>{t}</p></div>
-        ))}
+      <section className="mx-auto max-w-3xl px-5 lg:px-8 py-12 lg:py-16">
+        <nav aria-label="Policies" className="flex flex-wrap gap-2">
+          {LEGAL.map((l) => (
+            <a key={l.id} href={`#${l.id}`} className="px-4 py-2 rounded-full border border-border bg-card text-sm font-medium text-primary hover:border-accent/50 hover:text-accent transition-colors">{l.title}</a>
+          ))}
+        </nav>
+        <div className="mt-10 space-y-12">
+          {LEGAL.map((l) => (
+            <div key={l.id} id={l.id} className="scroll-mt-24">
+              <h2 className="font-display text-2xl font-bold text-primary">{l.title}</h2>
+              <p className="mt-3 text-muted-foreground leading-relaxed">{l.intro}</p>
+              <ul className="mt-4 space-y-2">
+                {l.bullets.map((b) => (
+                  <li key={b} className="flex gap-2 text-sm text-primary/80"><CheckCircle2 className="h-4 w-4 text-accent shrink-0 mt-0.5" /> {b}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="mt-14 rounded-2xl bg-secondary/60 p-8 text-center">
+          <h3 className="font-display text-xl font-bold text-primary">Questions about our policies?</h3>
+          <p className="mt-2 text-sm text-muted-foreground">Get in touch and we'll be happy to help.</p>
+          <Link to="/contact" className="mt-5 inline-block px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold">Contact us</Link>
+        </div>
       </section>
     </Layout>
   );
